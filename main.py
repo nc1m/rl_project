@@ -22,14 +22,15 @@ TODO Description""", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-mepss', '--maxEpisodeSteps', default=100, type=int,
                         help='The maximum episode steps in a episode')
     parser.add_argument('--no_cuda', action='store_true', help='Set this if cuda is availbable, but you do NOT want to use it.')
-    
+    parser.add_argument('--pobs', action='store_true', help='Prints the observation')
+
     return parser.parse_args()
 
 def main(args):
     
     agent = None
     enviroment = env.Enviroment(args.env)
-    enviroment.play(args.episodes, args.maxEpisodeSteps)
+    enviroment.play(args.episodes, args.maxEpisodeSteps, agent, args.pobs)
 
 
 if __name__ == '__main__':
