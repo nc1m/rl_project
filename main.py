@@ -4,7 +4,7 @@ from src import env
 import argparse
 
 
-ENVIROMENT_CHOICES = ['CartPole-v0', 'HumanoidStandup-v2']
+ENVIROMENT_CHOICES = ['CartPole-v1', 'HumanoidStandup-v2']
 
 def parse_args():
     parser = argparse.ArgumentParser(description="""
