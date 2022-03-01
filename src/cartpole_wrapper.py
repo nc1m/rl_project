@@ -7,7 +7,7 @@ from gym import spaces
 def get_screen(env):
     ''' Extract one step of the simulation.'''
     screen = env.render(mode='rgb_array')
-    screen = np.ascontiguousarray(screen, dtype=np.float32)
+    screen = np.ascontiguousarray(screen, dtype=np.uint8)
     return screen
 
 
