@@ -63,12 +63,11 @@ def p_env_info(env):
     print(f'env.observation_space: {env.observation_space}')
 
 
-def optimize_model(replayBuffer, batchSize):
-    if len(replayBuffer) < batchSize:
-        return
+# def optimize_model(replayBuffer, batchSize):
+#     if len(replayBuffer) < batchSize:
+#         return
 
-    transitions = replayBuffer.sample(batchSize)
-
+#     transitions = replayBuffer.sample(batchSize)
 
 
 def main(args):
@@ -103,7 +102,7 @@ def main(args):
 
     p_env_info(env)
 
-    replayBuffer = ReplayMemory(args.replayMem, use_cuda, (not args.no_augmentation))
+    replayBuffer = ReplayMemory(args.replayMem, use_cuda, (not args.no_augmentation), args.imageSize)
 
     for i_episode in range(args.numEp):
         print(f'i_episode: {i_episode}')
@@ -131,20 +130,28 @@ def main(args):
                 print(f'type(info): {type(info)}')
 
             replayBuffer.push(curState, action, nextState, reward)
-            curState = nextState
+            if len(replayBuffer) < args.batchSize:
+                continue
 
-            optimize_model(replayBuffer, args.batchSize)
+            states, actions, nextStates, rewards = replayBuffer.sample(args.batchSize)
+            if i_episode == 2 and i_steps == 0:
+                print(f'states.shape: {states.shape}')
+                print(f'actions.shape: {actions.shape}')
+                print(f'nextStates.shape: {nextStates.shape}')
+                print(f'rewards.shape: {rewards.shape}')
+
+
             if done:
                 print("Episode finished after {} timesteps".format(i_steps+1))
                 break
+
     env.close()
 
     # OLD
     # print(gym.envs.registry.all())
-    resize = T.Compose([T.ToPILImage(),
-                        T.Resize(40, interpolation=T.InterpolationMode.BICUBIC),#Image.CUBIC),
-                        T.ToTensor()])
-
+    # resize = T.Compose([T.ToPILImage(),
+    #                     T.Resize(40, interpolation=T.InterpolationMode.BICUBIC),#Image.CUBIC),
+    #                     T.ToTensor()])
     # agent = None
     # enviroment = env.Enviroment(args.env)
     # enviroment.play(args.episodes, args.maxEpisodeSteps, agent, args.pobs)

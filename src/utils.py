@@ -37,15 +37,17 @@ def process_images(images):
     # images = np.transpose(images, (0, 3, 1, 2)) # alternative to tensor.permute(0, 3, 1, 2)
     images = torch.tensor(images, dtype=torch.float)
     images = images.permute(0, 3, 1, 2)
+    images = images / 255
     return images
 
 
 
 class ReplayMemory(object):
 
-    def __init__(self, capacity, use_cuda, use_augmentation):
+    def __init__(self, capacity, use_cuda, use_augmentation, imageSize):
         self.memory = deque([], maxlen=capacity)
         self.use_augmentation = use_augmentation
+        self.imageSize = imageSize
         self.use_cuda = use_cuda
 
     def push(self, curState, action, nextState, reward):
@@ -83,7 +85,7 @@ class ReplayMemory(object):
             nextStates = nextStates.cuda()
 
         if self.use_augmentation:
-            transform = nn.Sequential(nn.ReplicationPad2d(4), RandomCrop((84, 84)), Intensity(scale=0.5))
+            transform = nn.Sequential(nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
             # print(f'states.shape: {states.shape}')
             states = transform(states)
             nextStates = transform(nextStates)
