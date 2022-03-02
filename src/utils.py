@@ -1,3 +1,4 @@
+import logging
 import torch
 from torch import nn
 
@@ -7,6 +8,10 @@ from sys import stderr
 
 # for type hint
 from torch import Tensor
+import torch.nn as nn
+import numpy as np
+from torchvision.transforms import ColorJitter
+from kornia.augmentation import RandomCrop
 from collections import namedtuple
 from collections import deque
 import random
@@ -17,17 +22,72 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 
+class Intensity(nn.Module):     # ColorJitter from https://arxiv.org/pdf/2004.13649.pdf
+    def __init__(self, scale):
+        super().__init__()
+        self.scale = scale
+
+    def forward(self, x):
+        r = torch.randn((x.size(0), 1, 1, 1), device=x.device)
+        noise = 1.0 + (self.scale * r.clamp(-2.0, 2.0))
+        return x * noise
+
+def process_images(images):
+    images = np.array(images, dtype=np.float)
+    # images = np.transpose(images, (0, 3, 1, 2)) # alternative to tensor.permute(0, 3, 1, 2)
+    images = torch.tensor(images, dtype=torch.float)
+    images = images.permute(0, 3, 1, 2)
+    return images
+
+
+
 class ReplayMemory(object):
 
-    def __init__(self, capacity):
+    def __init__(self, capacity, use_cuda, use_augmentation):
         self.memory = deque([], maxlen=capacity)
+        self.use_augmentation = use_augmentation
+        self.use_cuda = use_cuda
 
-    def push(self, *args):
+    def push(self, curState, action, nextState, reward):
         """Save a transition"""
-        self.memory.append(Transition(*args))
+        # logging.warning(f'curState: {type(curState)}')
+        # logging.warning(f'type(action): {type(action)}')
+        # logging.warning(f'type(nextState): {type(nextState)}')
+        # logging.warning(f'type(reward): {type(reward)}')
+        self.memory.append([curState, action, nextState, reward])
 
     def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
+        batch = random.sample(self.memory, batch_size)
+
+        states = []
+        actions = []
+        nextStates = []
+        rewards = []
+        for data in batch:
+            states.append(data[0])
+            actions.append(data[1])
+            nextStates.append(data[2])
+            rewards.append(data[3])
+
+        actions = torch.tensor(actions)
+        rewards = torch.tensor(rewards)
+
+        states = process_images(states)
+        nextStates = process_images(nextStates)
+
+        if self.use_cuda:
+            actions = actions.cuda()
+            rewards = rewards.cuda()
+
+            states = states.cuda()
+            nextStates = nextStates.cuda()
+
+        if self.use_augmentation:
+            transform = nn.Sequential(nn.ReplicationPad2d(4), RandomCrop((84, 84)), Intensity(scale=0.5))
+            # print(f'states.shape: {states.shape}')
+            states = transform(states)
+            nextStates = transform(nextStates)
+        return states, actions, nextStates, rewards
 
     def __len__(self):
         return len(self.memory)

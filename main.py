@@ -19,6 +19,7 @@ from src.config import NUM_EPISODES
 from src.config import NUM_STEPS
 from src.config import REPLAY_MEMORY_SIZE
 from src.config import BATCH_SIZE
+from src.config import IMAGE_SIZE
 
 
 def set_seed(seed):
@@ -52,6 +53,8 @@ def parse_args():
     parser.add_argument('--numSteps', default=NUM_STEPS, type=int, help='Maximum number of steps in an epsiode')
     parser.add_argument('--batchSize', default=BATCH_SIZE, type=int, help='Batch size')
     parser.add_argument('--pobs', action='store_true', help='Prints the observation')
+    parser.add_argument('--no_augmentation', action='store_true', help='Set if you want to disable shift and colorjitter augmentation.')
+    parser.add_argument('--imageSize', default=IMAGE_SIZE)
     return parser.parse_args()
 
 
@@ -65,20 +68,7 @@ def optimize_model(replayBuffer, batchSize):
         return
 
     transitions = replayBuffer.sample(batchSize)
-    return
-    # print(f'transitions.shape: {transitions.shape}')
-    print(f'batchSize: {batchSize}')
-    print(f'type(transitions): {type(transitions)}')
-    print(f'type(transitions[0]): {type(transitions[0])}')
-    print(f'type(transitions[0][0]): {type(transitions[0][0])}')
-    print(f'transitions[0][0].shape: {transitions[0][0].shape}')
-    batch = Transition(*zip(*transitions))  # From list(Transition) => Transition.Tupels
-    # print(f'batch: {batch}')
-    print(f'type(batch): {type(batch)}')
-    print(f'type(batch[0]): {type(batch[0])}')
-    print(f'len(batch[0]): {len(batch[0])}')
-    print(f'type(batch[0][0]): {type(batch[0][0])}')
-    print(f'batch[0][0].shape: {batch[0][0].shape}')
+
 
 
 def main(args):
@@ -113,9 +103,10 @@ def main(args):
 
     p_env_info(env)
 
-    replayBuffer = ReplayMemory(args.replayMem)
+    replayBuffer = ReplayMemory(args.replayMem, use_cuda, (not args.no_augmentation))
 
     for i_episode in range(args.numEp):
+        print(f'i_episode: {i_episode}')
         curState = env.reset()
         for i_steps in range(args.numSteps):
             if not use_ale and args.vis:
@@ -138,6 +129,7 @@ def main(args):
                 print(f'type(done): {type(done)}')
                 print(f'info: {info}')
                 print(f'type(info): {type(info)}')
+
             replayBuffer.push(curState, action, nextState, reward)
             curState = nextState
 
