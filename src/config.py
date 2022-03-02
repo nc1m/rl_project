@@ -15,3 +15,6 @@ REPLAY_MEMORY_SIZE = 10000
 
 # Default batch size
 BATCH_SIZE = 128
+
+# Default image size
+IMAGE_SIZE = 84

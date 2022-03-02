@@ -32,12 +32,21 @@ class Intensity(nn.Module):     # ColorJitter from https://arxiv.org/pdf/2004.13
         noise = 1.0 + (self.scale * r.clamp(-2.0, 2.0))
         return x * noise
 
+def process_images(images):
+    images = np.array(images, dtype=np.float)
+    # images = np.transpose(images, (0, 3, 1, 2)) # alternative to tensor.permute(0, 3, 1, 2)
+    images = torch.tensor(images, dtype=torch.float)
+    images = images.permute(0, 3, 1, 2)
+    return images
+
+
 
 class ReplayMemory(object):
 
-    def __init__(self, capacity, use_augmentation):
+    def __init__(self, capacity, use_cuda, use_augmentation):
         self.memory = deque([], maxlen=capacity)
         self.use_augmentation = use_augmentation
+        self.use_cuda = use_cuda
 
     def push(self, curState, action, nextState, reward):
         """Save a transition"""
@@ -45,12 +54,11 @@ class ReplayMemory(object):
         # logging.warning(f'type(action): {type(action)}')
         # logging.warning(f'type(nextState): {type(nextState)}')
         # logging.warning(f'type(reward): {type(reward)}')
-
         self.memory.append([curState, action, nextState, reward])
 
     def sample(self, batch_size):
         batch = random.sample(self.memory, batch_size)
-        print(len(batch))
+
         states = []
         actions = []
         nextStates = []
@@ -61,38 +69,25 @@ class ReplayMemory(object):
             nextStates.append(data[2])
             rewards.append(data[3])
 
-        states = np.array(states)
-        nextStates = np.array(nextStates)
-        print(states.shape)
-        print(nextStates.shape)
+        actions = torch.tensor(actions)
+        rewards = torch.tensor(rewards)
 
+        states = process_images(states)
+        nextStates = process_images(nextStates)
 
-        # print(f'type(batch): {type(batch)}')
-        # print(f'type(batch[0]): {type(batch[0])}')
-        # print(f'len(batch[0]): {len(batch[0])}')
-        # print(f'type(batch[0][0]): {type(batch[0][0])}')
-        # print(f'batch[0][0].shape: {batch[0][0].shape}')
-        # print('##########################################')
+        if self.use_cuda:
+            actions = actions.cuda()
+            rewards = rewards.cuda()
+
+            states = states.cuda()
+            nextStates = nextStates.cuda()
+
         if self.use_augmentation:
-            # print(batch[0])
-            # batch = Transition(*zip(*batch))
-            # batch[0] = np.vstack(batch[0])
-            # print(f'type(batch): {type(batch)}')
-            # print(f'type(batch[0]): {type(batch[0])}')
-            # print(f'batch[0].shape: {batch[0].shape}')
-            # print(f'len(batch[0]): {len(batch[0])}')
-            # print(f'type(batch[0][0]): {type(batch[0][0])}')
-            # print(f'batch[0][0].shape: {batch[0][0].shape}')
-            # print(f'len(batch[0]): {len(batch[0])}')
-            # print(f'len(batch[0][0]): {len(batch[0][0])}')
             transform = nn.Sequential(nn.ReplicationPad2d(4), RandomCrop((84, 84)), Intensity(scale=0.5))
-            states = transform(torch.tensor(states))
-            print(states.shape)
-            exit()
-            # batch[0] = transform(batch[0])
-            # batch[2] = transform(batch[2])
-
-        return batch
+            # print(f'states.shape: {states.shape}')
+            states = transform(states)
+            nextStates = transform(nextStates)
+        return states, actions, nextStates, rewards
 
     def __len__(self):
         return len(self.memory)
