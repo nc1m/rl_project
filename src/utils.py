@@ -1,3 +1,4 @@
+import logging
 import torch
 from torch import nn
 
@@ -8,6 +9,7 @@ from sys import stderr
 # for type hint
 from torch import Tensor
 import torch.nn as nn
+import numpy as np
 from torchvision.transforms import ColorJitter
 from kornia.augmentation import RandomCrop
 from collections import namedtuple
@@ -37,20 +39,58 @@ class ReplayMemory(object):
         self.memory = deque([], maxlen=capacity)
         self.use_augmentation = use_augmentation
 
-    def push(self, *args):
+    def push(self, curState, action, nextState, reward):
         """Save a transition"""
-        self.memory.append(Transition(*args))
+        # logging.warning(f'curState: {type(curState)}')
+        # logging.warning(f'type(action): {type(action)}')
+        # logging.warning(f'type(nextState): {type(nextState)}')
+        # logging.warning(f'type(reward): {type(reward)}')
+
+        self.memory.append([curState, action, nextState, reward])
 
     def sample(self, batch_size):
         batch = random.sample(self.memory, batch_size)
+        print(len(batch))
+        states = []
+        actions = []
+        nextStates = []
+        rewards = []
+        for data in batch:
+            states.append(data[0])
+            actions.append(data[1])
+            nextStates.append(data[2])
+            rewards.append(data[3])
+
+        states = np.array(states)
+        nextStates = np.array(nextStates)
+        print(states.shape)
+        print(nextStates.shape)
+
+
+        # print(f'type(batch): {type(batch)}')
+        # print(f'type(batch[0]): {type(batch[0])}')
+        # print(f'len(batch[0]): {len(batch[0])}')
+        # print(f'type(batch[0][0]): {type(batch[0][0])}')
+        # print(f'batch[0][0].shape: {batch[0][0].shape}')
+        # print('##########################################')
         if self.use_augmentation:
             # print(batch[0])
-            batch = Transition(*zip(*batch))
-            print(f'len(batch[0]): {len(batch[0])}')
-            print(f'len(batch[0][0]): {len(batch[0][0])}')
+            # batch = Transition(*zip(*batch))
+            # batch[0] = np.vstack(batch[0])
+            # print(f'type(batch): {type(batch)}')
+            # print(f'type(batch[0]): {type(batch[0])}')
+            # print(f'batch[0].shape: {batch[0].shape}')
+            # print(f'len(batch[0]): {len(batch[0])}')
+            # print(f'type(batch[0][0]): {type(batch[0][0])}')
+            # print(f'batch[0][0].shape: {batch[0][0].shape}')
+            # print(f'len(batch[0]): {len(batch[0])}')
+            # print(f'len(batch[0][0]): {len(batch[0][0])}')
             transform = nn.Sequential(nn.ReplicationPad2d(4), RandomCrop((84, 84)), Intensity(scale=0.5))
-            batch[0] = transform(batch[0])
-            batch[2] = transform(batch[2])
+            states = transform(torch.tensor(states))
+            print(states.shape)
+            exit()
+            # batch[0] = transform(batch[0])
+            # batch[2] = transform(batch[2])
 
         return batch
 

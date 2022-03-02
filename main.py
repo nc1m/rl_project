@@ -66,7 +66,7 @@ def optimize_model(replayBuffer, batchSize):
         return
 
     transitions = replayBuffer.sample(batchSize)
-    return
+    print('X=optimize_model')
     # print(f'transitions.shape: {transitions.shape}')
     print(f'batchSize: {batchSize}')
     print(f'type(transitions): {type(transitions)}')
