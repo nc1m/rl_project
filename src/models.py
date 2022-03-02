@@ -78,7 +78,7 @@ class SPRModel(nn.Module):
         #Falls k > 0
         if self.jumps > 0:
             #Berechne zukünftige Reward von Prediction 
-            pred_reward.append(self.dynamics_model.reward_predictor(pred_latents[0]))
+            pred_reward.append(self.transition.reward_predictor(pred_latents[0]))
             
             #für jeden k-Step in die Zukunft
             for j in range(1, self.jumps + 1):
