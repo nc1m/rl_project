@@ -7,6 +7,9 @@ from sys import stderr
 
 # for type hint
 from torch import Tensor
+import torch.nn as nn
+from torchvision.transforms import ColorJitter
+from kornia.augmentation import RandomCrop
 from collections import namedtuple
 from collections import deque
 import random
@@ -17,17 +20,39 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 
+class Intensity(nn.Module):     # ColorJitter from https://arxiv.org/pdf/2004.13649.pdf
+    def __init__(self, scale):
+        super().__init__()
+        self.scale = scale
+
+    def forward(self, x):
+        r = torch.randn((x.size(0), 1, 1, 1), device=x.device)
+        noise = 1.0 + (self.scale * r.clamp(-2.0, 2.0))
+        return x * noise
+
+
 class ReplayMemory(object):
 
-    def __init__(self, capacity):
+    def __init__(self, capacity, use_augmentation):
         self.memory = deque([], maxlen=capacity)
+        self.use_augmentation = use_augmentation
 
     def push(self, *args):
         """Save a transition"""
         self.memory.append(Transition(*args))
 
     def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
+        batch = random.sample(self.memory, batch_size)
+        if self.use_augmentation:
+            # print(batch[0])
+            batch = Transition(*zip(*batch))
+            print(f'len(batch[0]): {len(batch[0])}')
+            print(f'len(batch[0][0]): {len(batch[0][0])}')
+            transform = nn.Sequential(nn.ReplicationPad2d(4), RandomCrop((84, 84)), Intensity(scale=0.5))
+            batch[0] = transform(batch[0])
+            batch[2] = transform(batch[2])
+
+        return batch
 
     def __len__(self):
         return len(self.memory)

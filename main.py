@@ -52,6 +52,7 @@ def parse_args():
     parser.add_argument('--numSteps', default=NUM_STEPS, type=int, help='Maximum number of steps in an epsiode')
     parser.add_argument('--batchSize', default=BATCH_SIZE, type=int, help='Batch size')
     parser.add_argument('--pobs', action='store_true', help='Prints the observation')
+    parser.add_argument('--no_augmentation', action='store_true', help='Set if you want to disable shift and colorjitter augmentation.')
     return parser.parse_args()
 
 
@@ -113,7 +114,7 @@ def main(args):
 
     p_env_info(env)
 
-    replayBuffer = ReplayMemory(args.replayMem)
+    replayBuffer = ReplayMemory(args.replayMem, (not args.no_augmentation))
 
     for i_episode in range(args.numEp):
         curState = env.reset()
@@ -138,6 +139,7 @@ def main(args):
                 print(f'type(done): {type(done)}')
                 print(f'info: {info}')
                 print(f'type(info): {type(info)}')
+
             replayBuffer.push(curState, action, nextState, reward)
             curState = nextState
 
