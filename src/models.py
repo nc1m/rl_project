@@ -6,9 +6,8 @@ import torch.nn.functional as F
 
 class SPRModel(nn.Module):
     
-    def __init__(self, input_size, output_size, time_offset, image_size, image_shape, dqn_hidden_size, jumps, model_rl):
+    def __init__(self, output_size, time_offset, image_shape, dqn_hidden_size, jumps, model_rl):
         
-        self.input_size = input_size
         self.output_size = output_size
         self.time_offset = time_offset
         self.dqn_hidden_size = dqn_hidden_size
@@ -26,7 +25,7 @@ class SPRModel(nn.Module):
                                            use_maxpool=True,
                                            dropout = 0.5)
         
-        fake_input = torch.zeros(1, f*c, image_size, image_size)
+        fake_input = torch.zeros(1, f*c, image_shape[:2], image_shape[:2])
         fake_output = self.o_encoder(fake_input)
         self.hidden_size = fake_output.shape[1]
         self.pixels = fake_output.shape[-1]*fake_output.shape[-2]
