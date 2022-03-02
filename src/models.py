@@ -11,11 +11,11 @@ class SPRModel(nn.Module):
         
     
 class MLPOnlineHead(nn.Module):
-    def __init__(self, input_channel, output_size, hidden_size, pixels, n_atoms):
+    def __init__(self, input_channel, output_size, hidden_size, pixels):
         super(MLPOnlineHead, self).__init__()
         
         self.input = nn.Linear(input_channel * pixels, hidden_size)
-        self.output = nn.Linear(hidden_size, output_size * n_atoms)
+        self.output = nn.Linear(hidden_size, output_size)
         self.ReLU = nn.ReLU()
         self.flatten = nn.Flatten(-3, -1)
         
@@ -25,7 +25,28 @@ class MLPOnlineHead(nn.Module):
         x = self.ReLU(x)
         return self.output(x)
 
-#TODO
+class ResidualBlock(nn.Module):
+    def __init__(self,
+                 in_channels,
+                 out_channels):
+        super().__init__()
+        self.ReLU = nn.ReLU()
+        self.block = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 3),
+            nn.ReLU(),
+            nn.BatchNorm2d(out_channels, affine=True),
+            nn.Conv2d(out_channels, out_channels, 3),
+            nn.BatchNorm2d(out_channels, affine=True),
+        )
+
+    def forward(self, x):
+        residual = x
+        out = self.block(x)
+        out += residual
+        out = self.ReLU(out)
+        return out
+
+
 class TransitionModel(nn.Module):
     def __init__(self, channels,
                  num_actions,
@@ -35,34 +56,50 @@ class TransitionModel(nn.Module):
                  pixels=36,
                  limit=300,
                  action_dim=6,
-                 norm_type="bn",
                  renormalize=True,
                  residual=False):
         super(TransitionModel, self).__init__()
-        '''
+
         self.hidden_size = hidden_size
         self.num_actions = num_actions
         self.args = args
         self.renormalize = renormalize
         self.residual = residual
-        layers = [Conv2dSame(channels+num_actions, hidden_size, 3),
+        layers = [nn.Conv2d(channels+num_actions, hidden_size, 3),
                   nn.ReLU(),
-                  init_normalization(hidden_size, norm_type)]
+                  nn.BatchNorm2d(hidden_size, affine=True)]
         for _ in range(blocks):
             layers.append(ResidualBlock(hidden_size,
-                                        hidden_size,
-                                        norm_type))
-        layers.extend([Conv2dSame(hidden_size, channels, 3)])
+                                        hidden_size))
+        layers.extend([nn.Conv2d(hidden_size, channels, 3)])
 
         self.action_embedding = nn.Embedding(num_actions, pixels*action_dim)
 
         self.network = nn.Sequential(*layers)
         self.reward_predictor = RewardPredictor(channels,
                                                 pixels=pixels,
-                                                limit=limit,
-                                                norm_type=norm_type)
-        '''
-        
+                                                limit=limit)
+
+class RewardPredictor(nn.Module):
+    def __init__(self,
+                 input_channels,
+                 hidden_size=1,
+                 pixels=36,
+                 limit=300):
+        super().__init__()
+        self.hidden_size = hidden_size
+        layers = [nn.Conv2d(input_channels, hidden_size, kernel_size=1, stride=1),
+                  nn.ReLU(),
+                  nn.BatchNorm2d(hidden_size, affine=True),
+                  nn.Flatten(-3, -1),
+                  nn.Linear(pixels*hidden_size, 256),
+                  nn.ReLU(),
+                  nn.Linear(256, limit*2 + 1)]
+        self.network = nn.Sequential(*layers)
+        self.train()
+
+    def forward(self, x):
+        return self.network(x)
     
 class OnlineEncoder(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_sizes, strides, paddings, nonlinearity, use_maxpool, dropout = 0.5):
