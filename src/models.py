@@ -1,13 +1,42 @@
 from torch import nn
 import torch
+import numpy as np
 
 #TODO
 class SPRModel(nn.Module):
     
-    def __init__(self, input_size, output_size, time_offset):
+    def __init__(self, input_size, output_size, time_offset, image_size, image_shape, dqn_hidden_size):
         self.input_size = input_size
         self.output_size = output_size
         self.time_offset = time_offset
+        self.dqn_hidden_size = dqn_hidden_size
+        
+        f, c = image_shape[:2]
+        in_channels = np.prod(image_shape[:2])
+        self.o_encoder = OnlineEncoder(in_channels,
+                                           out_channels = [32, 64, 64],
+                                           kernel_sizes = [8, 4, 3],
+                                           strides = [4, 2, 1],
+                                           paddings = [0, 0, 0],
+                                           nonlinearity= nn.ReLU(),
+                                           use_maxpool=True,
+                                           dropout = 0.5)
+        
+        fake_input = torch.zeros(1, f*c, image_size, image_size)
+        fake_output = self.o_encoder(fake_input)
+        self.hidden_size = fake_output.shape[1]
+        self.pixels = fake_output.shape[-1]*fake_output.shape[-2]
+        print("Spatial latent size is {}".format(fake_output.shape[1:]))
+        
+        self.head = MLPOnlineHead(self.hidden_size, output_size, self.dqn_hidden_size, self.pixels)
+        
+        self.transition = TransitionModel(channels=self.hidden_size, 
+                                            num_actions=output_size,
+                                            pixels = self.pixels,
+                                            hidden_size=self.hidden_size,
+                                            limit = 1)
+        
+        
         
     
 class MLPOnlineHead(nn.Module):
@@ -56,15 +85,14 @@ class TransitionModel(nn.Module):
                  pixels=36,
                  limit=300,
                  action_dim=6,
-                 renormalize=True,
                  residual=False):
         super(TransitionModel, self).__init__()
 
         self.hidden_size = hidden_size
         self.num_actions = num_actions
         self.args = args
-        self.renormalize = renormalize
         self.residual = residual
+        self.ReLU = nn.ReLU()
         layers = [nn.Conv2d(channels+num_actions, hidden_size, 3),
                   nn.ReLU(),
                   nn.BatchNorm2d(hidden_size, affine=True)]
@@ -79,6 +107,22 @@ class TransitionModel(nn.Module):
         self.reward_predictor = RewardPredictor(channels,
                                                 pixels=pixels,
                                                 limit=limit)
+        
+    def forward(self, x, action):
+        batch_range = torch.arange(action.shape[0], device=action.device)
+        action_onehot = torch.zeros(action.shape[0],
+                                    self.num_actions,
+                                    x.shape[-2],
+                                    x.shape[-1],
+                                    device=action.device)
+        action_onehot[batch_range, action, :, :] = 1
+        stacked_image = torch.cat([x, action_onehot], 1)
+        next_state = self.network(stacked_image)
+        if self.residual:
+            next_state = next_state + x
+        next_state = self.ReLU(next_state)
+        next_reward = self.reward_predictor(next_state)
+        return next_state, next_reward
 
 class RewardPredictor(nn.Module):
     def __init__(self,
