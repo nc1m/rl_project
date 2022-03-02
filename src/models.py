@@ -1,6 +1,8 @@
 from torch import nn
 import torch
 import numpy as np
+import copy
+import utils
 
 #TODO
 class SPRModel(nn.Module):
@@ -28,7 +30,7 @@ class SPRModel(nn.Module):
         self.pixels = fake_output.shape[-1]*fake_output.shape[-2]
         print("Spatial latent size is {}".format(fake_output.shape[1:]))
         
-        self.head = MLPOnlineHead(self.hidden_size, output_size, self.dqn_hidden_size, self.pixels)
+        self.head = MLPOnlineProjectionHead(self.hidden_size, output_size, self.dqn_hidden_size, self.pixels)
         
         self.transition = TransitionModel(channels=self.hidden_size, 
                                             num_actions=output_size,
@@ -36,12 +38,12 @@ class SPRModel(nn.Module):
                                             hidden_size=self.hidden_size,
                                             limit = 1)
         
-        
-        
+        self.target_encoder = utils.EMA(model=self.o_encoder, decay=0.99)
+        #TODO: Q-LEARNING HEAD AND TARGET PROJECTION
     
-class MLPOnlineHead(nn.Module):
+class MLPOnlineProjectionHead(nn.Module):
     def __init__(self, input_channel, output_size, hidden_size, pixels):
-        super(MLPOnlineHead, self).__init__()
+        super(MLPOnlineProjectionHead, self).__init__()
         
         self.input = nn.Linear(input_channel * pixels, hidden_size)
         self.output = nn.Linear(hidden_size, output_size)
