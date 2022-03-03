@@ -46,7 +46,7 @@ def restore_leading_dims(tensors, lead_dim, T=1, B=1):
 def infer_leading_dims(tensor, dim):
     """Looks for up to two leading dimensions in ``tensor``, before
     the data dimensions, of which there are assumed to be ``dim`` number.
-    For use at beginning of model's ``forward()`` method, which should 
+    For use at beginning of model's ``forward()`` method, which should
     finish with ``restore_leading_dims()`` (see that function for help.)
     Returns:
     lead_dim: int --number of leading dims found.
@@ -79,7 +79,7 @@ class ScaleGrad(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         """Return the ``grad_output`` multiplied by ``ctx.scale``.  Also returns
-        a ``None`` as placeholder corresponding to (non-existent) gradient of 
+        a ``None`` as placeholder corresponding to (non-existent) gradient of
         the input ``scale`` of ``forward()``."""
         return grad_output * ctx.scale, None
 
@@ -205,9 +205,8 @@ class ReplayMemory(object):
             transform = nn.Sequential(RandomCrop((self.imageSize, self.imageSize)))
             states = transform(states)
             nextStates = transform(nextStates)
-        print(states.shape)
-        print(nextStates.shape)
-        exit()
+        # print(states.shape)
+        # print(nextStates.shape)
         return states, actions, nextStates, rewards
 
     def __len__(self):
