@@ -46,11 +46,12 @@ class OnlineEncoder(nn.Module):
 
 
 class DQN(nn.Module):
-    def __init__(self, inChannels, dimOut, noAugmentation):
+    def __init__(self, inChannels, dimOut, noAugmentation, Tau):
         "docstring"
         super(DQN, self).__init__()
 
         self.onlineEncoder = OnlineEncoder(inChannels, dimOut, noAugmentation)
+        self.targetEncoder = utils.EMA(self.onlineEncoder, Tau)
 
         layers = []
         self.sharedLinear = nn.Linear(dimHid, 256)
