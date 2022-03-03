@@ -20,6 +20,7 @@ from src.config import NUM_STEPS
 from src.config import REPLAY_MEMORY_SIZE
 from src.config import BATCH_SIZE
 from src.config import IMAGE_SIZE
+from src.models import SPRModel
 
 
 def set_seed(seed):
@@ -104,6 +105,8 @@ def main(args):
 
     replayBuffer = ReplayMemory(args.replayMem, use_cuda, (not args.no_augmentation), args.imageSize)
 
+    model = SPRModel(args.imageSize, env.action_space.n, 4, args.imageSize, (args.imageSize, args.imageSize), 128, 4, 1)
+
     for i_episode in range(args.numEp):
         print(f'i_episode: {i_episode}')
         curState = env.reset()
@@ -130,10 +133,14 @@ def main(args):
                 print(f'type(info): {type(info)}')
 
             replayBuffer.push(curState, action, nextState, reward)
+            if done:
+                env.reset()
             if len(replayBuffer) < args.batchSize:
                 continue
 
             states, actions, nextStates, rewards = replayBuffer.sample(args.batchSize)
+            model(states)
+
             if i_episode == 2 and i_steps == 0:
                 print(f'states.shape: {states.shape}')
                 print(f'actions.shape: {actions.shape}')
