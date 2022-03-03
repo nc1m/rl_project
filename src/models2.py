@@ -47,7 +47,7 @@ class OnlineEncoder(nn.Module):
 
 
 class DuelingDDQN(nn.Module):
-    def __init__(self, inChannels, dimHid, dimOut, noAugmentation):
+    def __init__(self, inChannels, dimHid, dimOut, noAugmentation, Tau):
         "docstring"
         super(DuelingDDQN, self).__init__()
         print(f'dimHid: {dimHid}')
