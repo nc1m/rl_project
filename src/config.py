@@ -18,3 +18,6 @@ BATCH_SIZE = 128
 
 # Default image size
 IMAGE_SIZE = 84
+
+# Default framestack
+FRAMESTACK = 4
