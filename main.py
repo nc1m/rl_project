@@ -58,6 +58,11 @@ def parse_args():
     parser.add_argument('--no_augmentation', action='store_true', help='Set if you want to disable shift and colorjitter augmentation.')
     parser.add_argument('--imageSize', default=IMAGE_SIZE)
     parser.add_argument('--framestack', default=FRAMESTACK, type=int)
+    parser.add_argument('--noisy-nets', type=int, default=1)
+    parser.add_argument('--noisy-nets-std', type=float, default=0.5)
+    parser.add_argument('--renormalize', type=int, default=1)
+    parser.add_argument('--distributional', type=int, default=1)
+    parser.add_argument('--momentum-tau', type=float, default=0.01)
     return parser.parse_args()
 
 
@@ -107,7 +112,8 @@ def main(args):
 
     replayBuffer = ReplayMemory(args.replayMem, use_cuda, (not args.no_augmentation), args.imageSize)
 
-    model = SPRModel(env.action_space.n, 4, (args.imageSize, args.imageSize), 128, 4, 1)
+    model = SPRModel(env.action_space.n, 4, (args.imageSize, args.imageSize), 128, 4, 1, args.noisy_nets, args.noisy_nets_std,
+                     1, args.renormalize, args.distributional, args.momentum_tau)
 
     for i_episode in range(args.numEp):
         print(f'i_episode: {i_episode}')
@@ -147,6 +153,7 @@ def main(args):
                 continue
 
             states, actions, nextStates, rewards = replayBuffer.sample(args.batchSize)
+            
             model(states)
 
             if i_episode == 2 and i_steps == 0:

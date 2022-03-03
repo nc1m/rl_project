@@ -20,6 +20,7 @@ class SPRModel(nn.Module):
         self.momentum_tau = momentum_tau
         f, c = image_shape[:2]
         in_channels = np.prod(image_shape[:2])
+        n_atoms = 1 if not self.distributional else n_atoms
         #Online Encoder
         self.o_encoder = OnlineEncoder(in_channels,
                                            out_channels = [32, 64, 64],
