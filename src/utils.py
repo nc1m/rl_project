@@ -13,6 +13,7 @@ import numpy as np
 from torchvision.transforms import Grayscale
 from kornia.augmentation import ColorJitter
 from kornia.augmentation import RandomCrop
+from kornia.augmentation import Resize
 from kornia.color import rgb_to_grayscale
 from collections import namedtuple
 from collections import deque
@@ -186,6 +187,10 @@ class ReplayMemory(object):
 
         actions = torch.tensor(actions)
         rewards = torch.tensor(rewards)
+        rewards = torch.clamp(rewards, -1.0, 1.0)
+        print(f'rewards.min(): {rewards.min()}')
+        print(f'rewards.max(): {rewards.max()}')
+
 
         states = process_images(states)
         nextStates = process_images(nextStates)
@@ -198,11 +203,11 @@ class ReplayMemory(object):
             nextStates = nextStates.cuda()
 
         if self.use_augmentation:
-            transform = nn.Sequential(nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
+            transform = nn.Sequential(Resize((self.imageSize, self.imageSize)), nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
             states = transform(states)
             nextStates = transform(nextStates)
         else:
-            transform = nn.Sequential(RandomCrop((self.imageSize, self.imageSize)))
+            transform = nn.Sequential(Resize((self.imageSize, self.imageSize)))
             states = transform(states)
             nextStates = transform(nextStates)
         # print(states.shape)
