@@ -23,7 +23,7 @@ from src.config import IMAGE_SIZE
 from src.config import FRAMESTACK
 from src.models import SPRModel
 
-from src.models2 import OnlineEncoder
+from src.models2 import DuelingDDQN
 
 def set_seed(seed):
     """Set seed"""
@@ -64,6 +64,7 @@ def parse_args():
     parser.add_argument('--renormalize', type=int, default=1)
     parser.add_argument('--distributional', type=int, default=1)
     parser.add_argument('--momentum-tau', type=float, default=0.01)
+    parser.add_argument('--dimHid', default=256, type=int)
     return parser.parse_args()
 
 
@@ -114,7 +115,7 @@ def main(args):
     replayBuffer = ReplayMemory(args.replayMem, use_cuda, (not args.no_augmentation), args.imageSize)
 
     # model = SPRModel(env.action_space.n, 4, (args.imageSize, args.imageSize), 128, 4, 1, args.noisy_nets, args.noisy_nets_std, 1, args.renormalize, args.distributional, args.momentum_tau)
-    model = OnlineEncoder(4, env.action_space.n, args.no_augmentation)
+    model = DuelingDDQN(args.framestack, args.dimHid, env.action_space.n, args.no_augmentation)
     if use_cuda:
         model = model.cuda()
 
@@ -155,8 +156,10 @@ def main(args):
                 continue
 
             states, actions, nextStates, rewards = replayBuffer.sample(args.batchSize)
-            print(states.dtype)
-            model(states)
+            out = model(states)
+            print(out.shape)
+            exit()
+
 
             if i_episode == 2 and i_steps == 0:
                 print(f'states.shape: {states.shape}')

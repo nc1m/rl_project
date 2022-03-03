@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 
 class OnlineEncoder(nn.Module):
-    def __init__(self, inChannels, dimOut, noAugmentation):
+    def __init__(self, inChannels, dimHid, noAugmentation):
         "dimOut = env.action_space"
         super(OnlineEncoder, self).__init__()
         inChannels_l = [inChannels, 32, 64]
@@ -31,26 +31,68 @@ class OnlineEncoder(nn.Module):
 
 
         # # TODO compute output size of convs
-        # linear = nn.Linear(512, dimOut)
-        # layers.append(linear, nn.ReLU())
-        # if noAugmentation:
-        #         layers.append(nn.Dropout(0.5))
+        layers.append(nn.Flatten(1))
+        layers.append(nn.Linear(64 * 7 * 7, dimHid))
+        layers.append(nn.ReLU())
+        if noAugmentation:
+                layers.append(nn.Dropout(0.5))
 
         self.encoder = nn.Sequential(*layers)
 
 
     def forward(self, x):
         x = self.encoder(x)
-        print(x.shape)
         return x
 
 
-class DQN(nn.Module):
-    def __init__(self, inChannels, dimOut, noAugmentation):
+class DuelingDDQN(nn.Module):
+    def __init__(self, inChannels, dimHid, dimOut, noAugmentation):
         "docstring"
-        super(DQN, self).__init__()
+        super(DuelingDDQN, self).__init__()
 
-        self.onlineEncoder = OnlineEncoder(inChannels, dimOut, noAugmentation)
+        self.onlineEncoder = OnlineEncoder(inChannels, dimHid, noAugmentation)
+        # TODO
+        sharedLinearLayers = []
+        sharedLinearLayers.append(nn.Linear(dimHid, dimHid))
+        sharedLinearLayers.append(nn.ReLU())
+        if noAugmentation:
+            sharedLinearLayers.append(nn.Dropout(0.5))
 
-        layers = []
-        self.sharedLinear = nn.Linear(dimHid, 256)
+        self.sharedLin = nn.Sequential(*sharedLinearLayers)
+
+
+        stateLayers = []
+        stateLayers.append(nn.Linear(dimHid, dimHid))
+        stateLayers.append(nn.ReLU())
+        if noAugmentation:
+            stateLayers.append(nn.Dropout(0.5))
+        stateLayers.append(nn.Linear(dimHid, 1))
+        stateLayers.append(nn.ReLU())
+        if noAugmentation:
+            stateLayers.append(nn.Dropout(0.5))
+
+        self.stateLin = nn.Sequential(*stateLayers)
+
+        actionLayers = []
+        actionLayers.append(nn.Linear(dimHid, dimHid))
+        actionLayers.append(nn.ReLU())
+        if noAugmentation:
+            actionLayers.append(nn.Dropout(0.5))
+        actionLayers.append(nn.Linear(dimHid, dimOut))
+        actionLayers.append(nn.ReLU())
+        if noAugmentation:
+            actionLayers.append(nn.Dropout(0.5))
+
+        self.actionLin = nn.Sequential(*actionLayers)
+
+    def forward(self, x):
+        encoding = self.onlineEncoder(x)
+        h = self.sharedLin(encoding)
+
+        actionVal = self.actionLin(h)
+        actionCentered = actionVal - actionVal.mean(dim=-1, keepdim=True)
+
+        stateVal = self.stateLin(h)
+
+        q = stateVal + actionCentered
+        return q
