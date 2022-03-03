@@ -23,6 +23,7 @@ from src.config import IMAGE_SIZE
 from src.config import FRAMESTACK
 from src.models import SPRModel
 
+from src.models2 import OnlineEncoder
 
 def set_seed(seed):
     """Set seed"""
@@ -55,7 +56,7 @@ def parse_args():
     parser.add_argument('--numSteps', default=NUM_STEPS, type=int, help='Maximum number of steps in an epsiode')
     parser.add_argument('--batchSize', default=BATCH_SIZE, type=int, help='Batch size')
     parser.add_argument('--pobs', action='store_true', help='Prints the observation')
-    parser.add_argument('--no_augmentation', action='store_true', help='Set if you want to disable shift and colorjitter augmentation.')
+    parser.add_argument('--no_augmentation', action='store_true', help='Set if you want to disable shift and colorjitter augmentation. ')
     parser.add_argument('--imageSize', default=IMAGE_SIZE)
     parser.add_argument('--framestack', default=FRAMESTACK, type=int)
     parser.add_argument('--noisy-nets', type=int, default=1)
@@ -112,8 +113,10 @@ def main(args):
 
     replayBuffer = ReplayMemory(args.replayMem, use_cuda, (not args.no_augmentation), args.imageSize)
 
-    model = SPRModel(env.action_space.n, 4, (args.imageSize, args.imageSize), 128, 4, 1, args.noisy_nets, args.noisy_nets_std,
-                     1, args.renormalize, args.distributional, args.momentum_tau)
+    # model = SPRModel(env.action_space.n, 4, (args.imageSize, args.imageSize), 128, 4, 1, args.noisy_nets, args.noisy_nets_std, 1, args.renormalize, args.distributional, args.momentum_tau)
+    model = OnlineEncoder(4, env.action_space.n, args.no_augmentation)
+    if use_cuda:
+        model = model.cuda()
 
     for i_episode in range(args.numEp):
         print(f'i_episode: {i_episode}')
@@ -143,7 +146,6 @@ def main(args):
             if len(framestack) < args.framestack:
                 framestack.append([curState, action, nextState, reward])
             else:
-                print(len(framestack))
                 replayBuffer.push(framestack)
                 framestack = []
                 # replayBuffer.push(curState, action, nextState, reward)
@@ -153,7 +155,7 @@ def main(args):
                 continue
 
             states, actions, nextStates, rewards = replayBuffer.sample(args.batchSize)
-            
+            print(states.dtype)
             model(states)
 
             if i_episode == 2 and i_steps == 0:

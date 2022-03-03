@@ -157,9 +157,9 @@ class ReplayMemory(object):
 
     def sample(self, batch_size):
         batches = random.sample(self.memory, batch_size) # BATCH X FRAMESTACK X 4
-        print(len(batches))
-        print(len(batches[0]))
-        print(len(batches[0][0]))
+        # print(len(batches))
+        # print(len(batches[0]))
+        # print(len(batches[0][0]))
         states = []             # BATCH X FRAMESTACK X WIDTH X HEIGHT
         actions = []
         nextStates = []
@@ -184,8 +184,8 @@ class ReplayMemory(object):
         actions = torch.tensor(actions)
         rewards = torch.tensor(rewards)
         rewards = torch.clamp(rewards, -1.0, 1.0)
-        print(f'rewards.min(): {rewards.min()}')
-        print(f'rewards.max(): {rewards.max()}')
+        # print(f'rewards.min(): {rewards.min()}')
+        # print(f'rewards.max(): {rewards.max()}')
 
 
         states = process_images(states)
