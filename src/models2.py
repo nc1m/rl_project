@@ -1,3 +1,4 @@
+from re import X
 from torch import nn
 import torch
 import numpy as np
@@ -90,7 +91,10 @@ class DuelingDDQN(nn.Module):
 
         self.actionLin = nn.Sequential(*actionLayers)
 
-
+        self.target_projection = nn.Sequential(nn.Linear(self.dimHid, 2*self.dimHid),
+                                                nn.BatchNorm1d(2*self.dimHid),
+                                                nn.ReLU(),
+                                                nn.Linear(2*self.dimHid, self.dimHid))
 
     def forward(self, x):
         encoding = self.onlineEncoder(x)
@@ -105,3 +109,31 @@ class DuelingDDQN(nn.Module):
         print(f'stateVal.shape: {stateVal.shape}')
         q = stateVal + actionCentered
         return q
+
+class OnlineProjectionHead():
+    def __init__(self, dimHid):
+        "docstring"
+        super(OnlineProjectionHead, self).__init__()
+        
+        self.net = nn.Sequential(nn.Linear(dimHid,2*dimHid),
+                                    nn.BatchNorm1d(2*dimHid),
+                                    nn.ReLU(),
+                                    nn.Linear(2*dimHid, dimHid),
+                                    nn.ReLU(),
+                                    nn.Linear(dimHid, dimHid)) #online-q-prediction-head
+
+    def forward(self, x):
+        return self.net(x)
+    
+class TargetProjectionHead():
+    def __init__(self, dimHid):
+        "docstring"
+        super(TargetProjectionHead, self).__init__()
+        
+        self.net = nn.Sequential(nn.Linear(dimHid,2*dimHid),
+                                    nn.BatchNorm1d(2*dimHid),
+                                    nn.ReLU(),
+                                    nn.Linear(2*dimHid, dimHid))
+
+    def forward(self, x):
+        return self.net(x)
