@@ -112,10 +112,6 @@ def update_state_dict(model, state_dict, tau=1, strip_ddp=True):
             for k, v in model.state_dict().items()}
         model.load_state_dict(update_sd)
 
-
-
-
-
 class Intensity(nn.Module):     # ColorJitter from https://arxiv.org/pdf/2004.13649.pdf
     def __init__(self, scale):
         super().__init__()
