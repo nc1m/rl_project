@@ -20,6 +20,7 @@ from src.config import NUM_STEPS
 from src.config import REPLAY_MEMORY_SIZE
 from src.config import BATCH_SIZE
 from src.config import IMAGE_SIZE
+from src.config import FRAMESTACK
 from src.models import SPRModel
 
 
@@ -56,6 +57,7 @@ def parse_args():
     parser.add_argument('--pobs', action='store_true', help='Prints the observation')
     parser.add_argument('--no_augmentation', action='store_true', help='Set if you want to disable shift and colorjitter augmentation.')
     parser.add_argument('--imageSize', default=IMAGE_SIZE)
+    parser.add_argument('--framestack', default=FRAMESTACK, type=int)
     return parser.parse_args()
 
 
@@ -110,6 +112,7 @@ def main(args):
     for i_episode in range(args.numEp):
         print(f'i_episode: {i_episode}')
         curState = env.reset()
+        framestack = []
         for i_steps in range(args.numSteps):
             if not use_ale and args.vis:
                 env.render()
@@ -131,8 +134,13 @@ def main(args):
                 print(f'type(done): {type(done)}')
                 print(f'info: {info}')
                 print(f'type(info): {type(info)}')
-
-            replayBuffer.push(curState, action, nextState, reward)
+            if len(framestack) < args.framestack:
+                framestack.append([curState, action, nextState, reward])
+            else:
+                print(len(framestack))
+                replayBuffer.push(framestack)
+                framestack = []
+                # replayBuffer.push(curState, action, nextState, reward)
             if done:
                 env.reset()
             if len(replayBuffer) < args.batchSize:

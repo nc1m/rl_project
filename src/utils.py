@@ -10,8 +10,11 @@ from sys import stderr
 from torch import Tensor
 import torch.nn as nn
 import numpy as np
-from torchvision.transforms import ColorJitter
+from torchvision.transforms import Grayscale
+from kornia.augmentation import ColorJitter
 from kornia.augmentation import RandomCrop
+from kornia.augmentation import Resize
+from kornia.color import rgb_to_grayscale
 from collections import namedtuple
 from collections import deque
 import random
@@ -44,7 +47,7 @@ def restore_leading_dims(tensors, lead_dim, T=1, B=1):
 def infer_leading_dims(tensor, dim):
     """Looks for up to two leading dimensions in ``tensor``, before
     the data dimensions, of which there are assumed to be ``dim`` number.
-    For use at beginning of model's ``forward()`` method, which should 
+    For use at beginning of model's ``forward()`` method, which should
     finish with ``restore_leading_dims()`` (see that function for help.)
     Returns:
     lead_dim: int --number of leading dims found.
@@ -77,7 +80,7 @@ class ScaleGrad(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         """Return the ``grad_output`` multiplied by ``ctx.scale``.  Also returns
-        a ``None`` as placeholder corresponding to (non-existent) gradient of 
+        a ``None`` as placeholder corresponding to (non-existent) gradient of
         the input ``scale`` of ``forward()``."""
         return grad_output * ctx.scale, None
 
@@ -126,8 +129,10 @@ def process_images(images):
     images = np.array(images, dtype=np.float)
     # images = np.transpose(images, (0, 3, 1, 2)) # alternative to tensor.permute(0, 3, 1, 2)
     images = torch.tensor(images, dtype=torch.float)
-    images = images.permute(0, 3, 1, 2)
+    images = images.permute(0, 1, 4, 2, 3)
     images = images / 255
+    images = rgb_to_grayscale(images)
+    images = torch.squeeze(images)
     return images
 
 
@@ -140,29 +145,48 @@ class ReplayMemory(object):
         self.imageSize = imageSize
         self.use_cuda = use_cuda
 
-    def push(self, curState, action, nextState, reward):
+    # def push(self, curState, action, nextState, reward):
+    def push(self, framestack):
         """Save a transition"""
         # logging.warning(f'curState: {type(curState)}')
         # logging.warning(f'type(action): {type(action)}')
         # logging.warning(f'type(nextState): {type(nextState)}')
         # logging.warning(f'type(reward): {type(reward)}')
-        self.memory.append([curState, action, nextState, reward])
+        # self.memory.append([curState, action, nextState, reward])
+        self.memory.append(framestack)
 
     def sample(self, batch_size):
-        batch = random.sample(self.memory, batch_size)
-
-        states = []
+        batches = random.sample(self.memory, batch_size) # BATCH X FRAMESTACK X 4
+        print(len(batches))
+        print(len(batches[0]))
+        print(len(batches[0][0]))
+        states = []             # BATCH X FRAMESTACK X WIDTH X HEIGHT
         actions = []
         nextStates = []
         rewards = []
-        for data in batch:
-            states.append(data[0])
-            actions.append(data[1])
-            nextStates.append(data[2])
-            rewards.append(data[3])
+        for batch in batches:
+            states_fs = []
+            actions_fs = []
+            nextStates_fs = []
+            rewards_fs = []
+            for framestack in batch:
+                states_fs.append(framestack[0])
+                actions_fs.append(framestack[1])
+                nextStates_fs.append(framestack[2])
+                rewards_fs.append(framestack[3])
+            states.append(states_fs)
+            nextStates.append(nextStates_fs)
+            actions.append(actions_fs)
+            rewards.append(rewards_fs)
+
+
 
         actions = torch.tensor(actions)
         rewards = torch.tensor(rewards)
+        rewards = torch.clamp(rewards, -1.0, 1.0)
+        print(f'rewards.min(): {rewards.min()}')
+        print(f'rewards.max(): {rewards.max()}')
+
 
         states = process_images(states)
         nextStates = process_images(nextStates)
@@ -175,10 +199,15 @@ class ReplayMemory(object):
             nextStates = nextStates.cuda()
 
         if self.use_augmentation:
-            transform = nn.Sequential(nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
-            # print(f'states.shape: {states.shape}')
+            transform = nn.Sequential(Resize((self.imageSize, self.imageSize)), nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
             states = transform(states)
             nextStates = transform(nextStates)
+        else:
+            transform = nn.Sequential(Resize((self.imageSize, self.imageSize)))
+            states = transform(states)
+            nextStates = transform(nextStates)
+        # print(states.shape)
+        # print(nextStates.shape)
         return states, actions, nextStates, rewards
 
     def __len__(self):
