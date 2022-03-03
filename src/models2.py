@@ -32,6 +32,7 @@ class OnlineEncoder(nn.Module):
 
         # # TODO compute output size of convs
         layers.append(nn.Flatten(1))
+        print(f'dimHid: {dimHid}')
         layers.append(nn.Linear(64 * 7 * 7, dimHid))
         layers.append(nn.ReLU())
         if noAugmentation:
@@ -49,8 +50,12 @@ class DuelingDDQN(nn.Module):
     def __init__(self, inChannels, dimHid, dimOut, noAugmentation):
         "docstring"
         super(DuelingDDQN, self).__init__()
-
+        print(f'dimHid: {dimHid}')
         self.onlineEncoder = OnlineEncoder(inChannels, dimHid, noAugmentation)
+        if noAugmentation:
+            self.targetEncoder = utils.EMA(self.onlineEncoder, 0.99)
+        else:
+            self.targetEncoder = utils.EMA(self.onlineEncoder, 0.0)
         # TODO
         sharedLinearLayers = []
         sharedLinearLayers.append(nn.Linear(dimHid, dimHid))
@@ -86,18 +91,17 @@ class DuelingDDQN(nn.Module):
         self.actionLin = nn.Sequential(*actionLayers)
 
 
-        self.onlineEncoder = OnlineEncoder(inChannels, dimOut, noAugmentation)
-        self.targetEncoder = utils.EMA(self.onlineEncoder, Tau)
-
 
     def forward(self, x):
         encoding = self.onlineEncoder(x)
+        print(f'encoding.shape: {encoding.shape}')
         h = self.sharedLin(encoding)
+        print(f'h.shape: {h.shape}')
         actionVal = self.actionLin(h)
+        print(f'actionVal.shape: {actionVal.shape}')
         actionCentered = actionVal - actionVal.mean(dim=-1, keepdim=True)
-
+        print(f'actionCentered.shape: {actionCentered.shape}')
         stateVal = self.stateLin(h)
-
+        print(f'stateVal.shape: {stateVal.shape}')
         q = stateVal + actionCentered
         return q
-i
