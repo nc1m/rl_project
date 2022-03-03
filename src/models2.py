@@ -85,10 +85,14 @@ class DuelingDDQN(nn.Module):
 
         self.actionLin = nn.Sequential(*actionLayers)
 
+
+        self.onlineEncoder = OnlineEncoder(inChannels, dimOut, noAugmentation)
+        self.targetEncoder = utils.EMA(self.onlineEncoder, Tau)
+
+
     def forward(self, x):
         encoding = self.onlineEncoder(x)
         h = self.sharedLin(encoding)
-
         actionVal = self.actionLin(h)
         actionCentered = actionVal - actionVal.mean(dim=-1, keepdim=True)
 
@@ -96,3 +100,4 @@ class DuelingDDQN(nn.Module):
 
         q = stateVal + actionCentered
         return q
+i
