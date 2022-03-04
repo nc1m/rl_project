@@ -156,9 +156,35 @@ def main(args):
                 continue
 
             states, actions, nextStates, rewards = replayBuffer.sample(args.batchSize)
-            out = model(states)
-            print(out.shape)
-            exit()
+            hiddenRep, convFeatureMaps = model.forward_online_encoder(states)
+            print(f'X_hiddenStates.shape: {hiddenRep.shape}')
+            qValues_perAction= model(hiddenRep)
+
+            print(f'convFeatureMaps.shape: {convFeatureMaps.shape}')
+
+            print(f'actions.shape: {actions.shape}')
+            # TODO: ist das richtig????
+            actions = actions.argmax(dim=1)
+            # action will encoded as a one hot vector which is tiled appropriately into planes.
+            print(f'actions.shape: {actions.shape}')
+
+            convTransition_hiddenRep_tk = model.forward_conv_transition_model(convFeatureMaps, actions)
+            print(f'convTransition_hiddenRep_tk.shape: {convTransition_hiddenRep_tk.shape}')
+
+            predictor_q_out= model.forward_online_projection_and_predictor_q(convTransition_hiddenRep_tk)
+            print(f'predictor_q_out.shape: {predictor_q_out.shape}')
+
+            # TODO: target encoder in models2.py
+            targetEncoder_hiddenRep_tk = torch.zeros(hiddenRep.shape)# model.forward_target_encoder(nextStates)
+
+            # TODO: target projection in models2.py
+            targetProjectionOut = torch.zeros(predictor_q_out.shape)
+
+
+            print(f'qValues_perAction.shape: {qValues_perAction.shape}')
+
+
+
 
 
             if i_episode == 2 and i_steps == 0:
