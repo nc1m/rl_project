@@ -30,24 +30,22 @@ class OnlineEncoder(nn.Module):
         # layers = nn.Sequential([conv1_in, nn.ReLU(), conv2, nn.ReLU(), conv3, nn.ReLU()])
 
 
+        # linLayers = []
+        # linLayers.append(nn.Flatten(1))
+        # print(f'dimHid: {dimHid}')
+        # linLayers.append(nn.Linear(64 * 7 * 7, dimHid))
+        # linLayers.append(nn.ReLU())
+        # if noAugmentation:
+        #         linLayers.append(nn.Dropout(0.5))
 
-        # # TODO compute output size of convs
-        linLayers = []
-        linLayers.append(nn.Flatten(1))
-        print(f'dimHid: {dimHid}')
-        linLayers.append(nn.Linear(64 * 7 * 7, dimHid))
-        linLayers.append(nn.ReLU())
-        if noAugmentation:
-                linLayers.append(nn.Dropout(0.5))
-
-        self.mlp = nn.Sequential(*linLayers)
+        # self.mlp = nn.Sequential(*linLayers)
 
 
 
     def forward(self, x):
         convFeatureMaps = self.conv(x)
-        hiddenRep = self.mlp(convFeatureMaps)
-        return hiddenRep, convFeatureMaps
+        # hiddenRep = self.mlp(convFeatureMaps)
+        return convFeatureMaps
 
 
 class ConvTransitionModel(nn.Module):
@@ -61,32 +59,17 @@ class ConvTransitionModel(nn.Module):
         print(f'dimOut: {dimOut}')
         print(64 + dimOut)
         convLayers = []
-        convLayers.append(nn.Conv2d(64 + dimOut, dimHid, 3))
+        convLayers.append(nn.Conv2d(64 + dimOut, 64, 3, 1, 1))
         convLayers.append(nn.ReLU())
-        convLayers.append(nn.BatchNorm2d(dimHid))
-        convLayers.append(nn.Conv2d(dimHid, dimHid, 3))
+        convLayers.append(nn.BatchNorm2d(64))
+        convLayers.append(nn.Conv2d(64, 64, 3, 1, 1))
         convLayers.append(nn.ReLU())
 
         self.conv = nn.Sequential(*convLayers)
 
-        linLayers = []
-        linLayers.append(nn.Flatten(1))
-        linLayers.append(nn.Linear(dimHid*3*3, dimHid))
-        linLayers.append(nn.ReLU())
-        if noAugmentation:
-            linLayers.append(nn.Dropout(0.5))
-
-        linLayers.append(nn.Linear(dimHid, dimHid))
-        linLayers.append(nn.ReLU())
-        if noAugmentation:
-            linLayers.append(nn.Dropout(0.5))
-
-
-        self.MLP = nn.Sequential(*linLayers)
-
-
 
     def forward(self, x, action):
+        print('ConvTM.forward: ###########################')
         print(f'x.shape: {x.shape}')
         print(f'action.shape: {action.shape}')
         # TODO In Atari, an action is encoded as a one hot vector which is tiled appropriately into planes.
@@ -101,10 +84,12 @@ class ConvTransitionModel(nn.Module):
         action_onehot[batch_range, action, :, :] = 1
         stacked_image = torch.cat([x, action_onehot], 1)
         print(f'stacked_image.shape: {stacked_image.shape}')
-        stacked_image = self.conv(stacked_image)
-        convTransition_hiddenRep_tk = self.MLP(stacked_image)
-        print(f'convTransiton_hiddenRep_tk.shape: {convTransition_hiddenRep_tk.shape}')
-        return convTransition_hiddenRep_tk
+        nextState_convRep = self.conv(stacked_image)
+        # print(self.conv)
+        # print(f'stacked_image.shape: {stacked_image.shape}')
+        # convTransition_hiddenRep_tk = self.MLP(stacked_image)
+        # print(f'convTransiton_hiddenRep_tk.shape: {convTransition_hiddenRep_tk.shape}')
+        return nextState_convRep
 
 
 
@@ -124,7 +109,8 @@ class DuelingDDQN(nn.Module):
             self.targetEncoder = utils.EMA(self.onlineEncoder, 0.0)
 
         sharedLinearLayers = []
-        sharedLinearLayers.append(nn.Linear(dimHid, dimHid))
+        sharedLinearLayers.append(nn.Flatten(1))
+        sharedLinearLayers.append(nn.Linear(64*7*7, dimHid))
         sharedLinearLayers.append(nn.ReLU())
         if noAugmentation:
             sharedLinearLayers.append(nn.Dropout(0.5))
@@ -183,7 +169,6 @@ class DuelingDDQN(nn.Module):
 
     def forward(self, encoding):
         # encoding = self.onlineEncoder(x)
-        # print(f'encoding.shape: {encoding.shape}')
         print(f'encoding.shape: {encoding.shape}')
         h = self.sharedLin(encoding)
         # print(f'h.shape: {h.shape}')
@@ -206,12 +191,12 @@ class DuelingDDQN(nn.Module):
         return q# , predictor_q_out
 
     def forward_online_encoder(self, x):
-        hiddenRep, convFeatureMaps = self.onlineEncoder(x)
-        print(f'hiddenRep.shape: {hiddenRep.shape}')
-        print(f'convFeatureMaps.shape: {convFeatureMaps.shape}')
-        return hiddenRep, convFeatureMaps
+        encoderFeatureMaps = self.onlineEncoder(x)
+        print(f'convFeatureMaps.shape: {encoderFeatureMaps.shape}')
+        return encoderFeatureMaps
 
     def forward_conv_transition_model(self, x, action):
+        print(f'forward_conv:action.shape: {action.shape}')
         return self.convTransitionModel(x, action)
 
     def forward_online_projection_and_predictor_q(self, convTransitionModelRep):

@@ -156,19 +156,43 @@ def main(args):
                 continue
 
             states, actions, nextStates, rewards = replayBuffer.sample(args.batchSize)
-            hiddenRep, convFeatureMaps = model.forward_online_encoder(states)
-            print(f'X_hiddenStates.shape: {hiddenRep.shape}')
-            qValues_perAction= model(hiddenRep)
+            encoderFeatureMaps = model.forward_online_encoder(states)
+            print(f'convFeatureMaps.shape: {encoderFeatureMaps.shape}')
+            qValues_perAction= model(encoderFeatureMaps)
 
-            print(f'convFeatureMaps.shape: {convFeatureMaps.shape}')
 
-            print(f'actions.shape: {actions.shape}')
+
+            print(f'HERE: actions.shape: {actions.shape}')
             # TODO: ist das richtig????
-            actions = actions.argmax(dim=1)
-            # action will encoded as a one hot vector which is tiled appropriately into planes.
-            print(f'actions.shape: {actions.shape}')
+            # actions = actions.argmax(dim=1)
+            convTransition_hiddenRep_tk = []
+            # TODO args.Framestack prob wrong
+            for i in range(args.framestack):
+                a = actions[:, i]
+                # a(cion) will encoded as a one hot vector which is tiled appropriately into planes.
+                print(f'forloop: a.shape: {a.shape}')
+                curRep = model.forward_conv_transition_model(encoderFeatureMaps, a)
+                convTransition_hiddenRep_tk.append(curRep)
+                # print(f'forloop: curRep.shape: {curRep.shape}')
+                # if convTransition_hiddenRep_tk is None:
+                #     convTransition_hiddenRep_tk = curRep
+                # else:
+                #     # print(f'curRep.shape: {curRep.shape}')
+                #     # print(f'convTransition_hiddenRep_tk.shape: {convTransition_hiddenRep_tk.shape}')
+                #     convTransition_hiddenRep_tk = torch.cat((convTransition_hiddenRep_tk, curRep))
+            pred_latents = torch.stack(convTransition_hiddenRep_tk, 1)
+            print(f'pred_latents.shape: {pred_latents.shape}')
+            exit()
+            # convTransition_hiddenRep_tk = np.array(convTransition_hiddenRep_tk)
+            # convTransition_hiddenRep_tk = torch.tensor(convTransition_hiddenRep_tk)
+            # if use_cuda:
+            #     convTransition_hiddenRep_tk = convTransition_hiddenRep_tk.cuda()
+            print(f'convTransition_hiddenRep_tk.shape: {convTransition_hiddenRep_tk.shape}')
 
-            convTransition_hiddenRep_tk = model.forward_conv_transition_model(convFeatureMaps, actions)
+
+
+
+            # convTransition_hiddenRep_tk = model.forward_conv_transition_model(convFeatureMaps, actions)
             print(f'convTransition_hiddenRep_tk.shape: {convTransition_hiddenRep_tk.shape}')
 
             predictor_q_out= model.forward_online_projection_and_predictor_q(convTransition_hiddenRep_tk)
