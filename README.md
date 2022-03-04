@@ -22,7 +22,7 @@ export LANG=C.UTF-8
 pip install -r requirements.txt
 ```
 
-## Usage:
+<!-- ## Usage:
 The default branch for the latest and stable changes is `release`.
 
 * To run SPR with augmentation
@@ -35,7 +35,7 @@ python -m scripts.run --public --game pong --momentum-tau 1.
 python -m scripts.run --public --game pong --augmentation none --target-augmentation 0 --momentum-tau 0.01 --dropout 0.5
 ```
 
-When reporting scores, we average across 10 seeds.
+When reporting scores, we average across 10 seeds. -->
 
 ## What does each file do?
 
