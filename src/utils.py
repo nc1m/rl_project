@@ -8,12 +8,14 @@ from sys import stderr
 
 # for type hint
 from torch import Tensor
+
 import torch.nn as nn
 import numpy as np
 from torchvision.transforms import Grayscale
+from torchvision.transforms import Resize
 from kornia.augmentation import ColorJitter
 from kornia.augmentation import RandomCrop
-from kornia.augmentation import Resize
+# from kornia.augmentation import Resize
 from kornia.color import rgb_to_grayscale
 from collections import namedtuple
 from collections import deque
@@ -127,12 +129,13 @@ class Intensity(nn.Module):     # ColorJitter from https://arxiv.org/pdf/2004.13
 
 def process_images(images):
     images = np.array(images, dtype=np.float)
+    print(f'images.shape: {images.shape}')
     # images = np.transpose(images, (0, 3, 1, 2)) # alternative to tensor.permute(0, 3, 1, 2)
     images = torch.tensor(images, dtype=torch.float)
-    images = images.permute(0, 1, 4, 2, 3)
+    images = images.permute(0, 1, 2, 5, 3, 4)
     images = images / 255
     images = rgb_to_grayscale(images)
-    images = torch.squeeze(images)
+    # images = torch.squeeze(images)
     return images
 
 
@@ -141,135 +144,56 @@ class ReplayMemory(object):
 
     def __init__(self, capacity, use_cuda, use_augmentation, imageSize):
         self.memory = deque([], maxlen=capacity)
+        self.states = deque([], maxlen=capacity)
+        self.actions = deque([], maxlen=capacity)
+        self.nextStates = deque([], maxlen=capacity)
+        self.rewards = deque([], maxlen=capacity)
+
         self.use_augmentation = use_augmentation
         self.imageSize = imageSize
         self.use_cuda = use_cuda
 
     # def push(self, curState, action, nextState, reward):
-    def push(self, framestack):
+    def push(self, state_fs, action_fs, nextState_fs, reward_fs):
         """Save a transition"""
         # logging.warning(f'curState: {type(curState)}')
         # logging.warning(f'type(action): {type(action)}')
         # logging.warning(f'type(nextState): {type(nextState)}')
         # logging.warning(f'type(reward): {type(reward)}')
         # self.memory.append([curState, action, nextState, reward])
-        self.memory.append(framestack)
-
-    def sample2(self, batch_size, k):
-        t = random.randint(0, len(self.memory)-k)
-
-        #batches = random.sample(self.memory, batch_size) # BATCH X FRAMESTACK X 4
-        # print(len(batches))
-        # print(len(batches[0]))
-        # print(len(batches[0][0]))
-
-        batch_obs = []
-        for _ in range(batch_size):
-            sequence_obs = [self.memory[i+t] for i in range(k)]
-            states = []             # BATCH X FRAMESTACK X WIDTH X HEIGHT
-            actions = []
-            nextStates = []
-            rewards = []
-            for obs in sequence_obs:
-                states_fs = []
-                #actions_fs = []
-                nextStates_fs = []
-                rewards_fs = []
-                for i, framestack in enumerate(obs):
-                    if i == 0:
-                        actions.append(framestack[1])
-                    states_fs.append(framestack[0])
-                    #actions_fs.append(framestack[1])
-                    nextStates_fs.append(framestack[2])
-                    rewards_fs.append(framestack[3])
-                states.append(states_fs)
-                nextStates.append(nextStates_fs)
-                #actions.append(actions_fs)
-                rewards.append(rewards_fs)
-
-            actions = torch.tensor(actions)
-            rewards = torch.tensor(rewards)
-            rewards = torch.clamp(rewards, -1.0, 1.0)
-
-            states = process_images(states)
-            nextStates = process_images(nextStates)
-
-            if self.use_cuda:
-                actions = actions.cuda()
-                rewards = rewards.cuda()
-
-                states = states.cuda()
-                nextStates = nextStates.cuda()
-
-            if self.use_augmentation:
-                transform = nn.Sequential(Resize((self.imageSize, self.imageSize)), nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
-                states = transform(states)
-                nextStates = transform(nextStates)
-            else:
-                transform = nn.Sequential(Resize((self.imageSize, self.imageSize)))
-                states = transform(states)
-                nextStates = transform(nextStates)
-            # print(states.shape)
-            # print(nextStates.shape)
-
-            batch_obs.append([states, actions, nextStates, rewards])
-
-        # print(f'rewards.min(): {rewards.min()}')
-        # print(f'rewards.max(): {rewards.max()}')
-
-
-        return np.array(batch_obs)
-        #return states, actions, nextStates, rewards
+        self.states.append(state_fs)
+        self.actions.append(action_fs)
+        self.nextStates.append(nextState_fs)
+        self.rewards.append(reward_fs)
+        # self.memory.append(framestack)
 
     def sample3(self, batchSize, k):
         k_m = batchSize % k
         print(f'batchSize={batchSize}\nk={k}\nk_m: {k_m}')
-        batch_k = []
-        for i_fullK in range(k_m):
-            print('4test')
-            randIndx = random.randint(0, (len(self.memory)-k))
-            # technique to slice deque from: https://stackoverflow.com/questions/10003143/how-to-slice-a-deque/10003351#10003351
-            print('testx')
-            curBatch = [self.memory[i] for i in range(randIndx, randIndx+k)]
-            print(curBatch)
-            exit()
-        return
-
-
-    def sample(self, batch_size):
-        batches = random.sample(self.memory, batch_size) # BATCH X FRAMESTACK X 4
-        # print(len(batches))
-        # print(len(batches[0]))
-        # print(len(batches[0][0]))
         states = []             # BATCH X FRAMESTACK X WIDTH X HEIGHT
         actions = []
         nextStates = []
         rewards = []
-        for batch in batches:
-            states_fs = []
-            actions_fs = []
-            nextStates_fs = []
-            rewards_fs = []
-            for framestack in batch:
-                states_fs.append(framestack[0])
-                actions_fs.append(framestack[1])
-                nextStates_fs.append(framestack[2])
-                rewards_fs.append(framestack[3])
-            states.append(states_fs)
-            nextStates.append(nextStates_fs)
-            actions.append(actions_fs)
-            rewards.append(rewards_fs)
+        for i_batchSize in range(batchSize):
 
+            randIndx = random.randint(0, (len(self.states)-k))
 
+            # technique to slice deque from: https://stackoverflow.com/questions/10003143/how-to-slice-a-deque/10003351#10003351
+            states.append([self.states[i] for i in range(randIndx, randIndx+k)])
+            actions.append([self.actions[i] for i in range(randIndx, randIndx+k)])
+            nextStates.append([self.nextStates[i] for i in range(randIndx, randIndx+k)])
+            rewards.append([self.rewards[i] for i in range(randIndx, randIndx+k)])
 
         actions = torch.tensor(actions)
         rewards = torch.tensor(rewards)
         rewards = torch.clamp(rewards, -1.0, 1.0)
-        # print(f'rewards.min(): {rewards.min()}')
-        # print(f'rewards.max(): {rewards.max()}')
 
-
+        # print(f'states.shape: {states.shape}')
+        print(f'len(states): {len(states)}')
+        print(f'type(states[0][0]): {type(states[0][0])}')
         states = process_images(states)
+        print(f'states.shape: {states.shape}')
+        print(f'type(states): {type(states)}')
         nextStates = process_images(nextStates)
 
         if self.use_cuda:
@@ -280,19 +204,79 @@ class ReplayMemory(object):
             nextStates = nextStates.cuda()
 
         if self.use_augmentation:
-            transform = nn.Sequential(Resize((self.imageSize, self.imageSize)), nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
+            transform = nn.Sequential(Resize(self.imageSize))#, nn.ReplicationPad2d(4),
+                                      # RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
+            print(f'states: {states.shape}')
             states = transform(states)
+            print('test2')
             nextStates = transform(nextStates)
         else:
             transform = nn.Sequential(Resize((self.imageSize, self.imageSize)))
             states = transform(states)
             nextStates = transform(nextStates)
-        # print(states.shape)
-        # print(nextStates.shape)
+
         return states, actions, nextStates, rewards
 
+
+    # def sample(self, batch_size):
+    #     batches = random.sample(self.memory, batch_size) # BATCH X FRAMESTACK X 4
+    #     # print(len(batches))
+    #     # print(len(batches[0]))
+    #     # print(len(batches[0][0]))
+    #     states = []             # BATCH X FRAMESTACK X WIDTH X HEIGHT
+    #     actions = []
+    #     nextStates = []
+    #     rewards = []
+    #     for batch in batches:
+    #         states_fs = []
+    #         actions_fs = []
+    #         nextStates_fs = []
+    #         rewards_fs = []
+    #         for framestack in batch:
+    #             states_fs.append(framestack[0])
+    #             actions_fs.append(framestack[1])
+    #             nextStates_fs.append(framestack[2])
+    #             rewards_fs.append(framestack[3])
+    #         states.append(states_fs)
+    #         nextStates.append(nextStates_fs)
+    #         actions.append(actions_fs)
+    #         rewards.append(rewards_fs)
+
+
+
+    #     actions = torch.tensor(actions)
+    #     rewards = torch.tensor(rewards)
+    #     rewards = torch.clamp(rewards, -1.0, 1.0)
+    #     # print(f'rewards.min(): {rewards.min()}')
+    #     # print(f'rewards.max(): {rewards.max()}')
+
+
+    #     states = process_images(states)
+    #     nextStates = process_images(nextStates)
+
+    #     if self.use_cuda:
+    #         actions = actions.cuda()
+    #         rewards = rewards.cuda()
+
+    #         states = states.cuda()
+    #         nextStates = nextStates.cuda()
+
+    #     if self.use_augmentation:
+    #         print('test1')
+    #         transform = nn.Sequential(Resize((self.imageSize, self.imageSize)), nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
+    #         states = transform(states)
+    #         nextStates = transform(nextStates)
+    #     else:
+    #         print('test2')
+    #         transform = nn.Sequential(Resize((self.imageSize, self.imageSize)))
+    #         states = transform(states)
+    #         nextStates = transform(nextStates)
+    #     # print(states.shape)
+    #     # print(nextStates.shape)
+    #     return states, actions, nextStates, rewards
+
     def __len__(self):
-        return len(self.memory)
+        return len(self.states)
 
 
 

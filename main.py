@@ -65,7 +65,7 @@ def parse_args():
     parser.add_argument('--distributional', type=int, default=1)
     parser.add_argument('--momentum-tau', type=float, default=0.01)
     parser.add_argument('--dimHid', default=256, type=int)
-    parser.add_argument('-K', default=5, type=int, help='Prediction depth K')
+    parser.add_argument('-k', default=5, type=int, help='Prediction depth K')
     return parser.parse_args()
 
 
@@ -125,6 +125,10 @@ def main(args):
         print(f'i_episode: {i_episode}')
         curState = env.reset()
         framestack = []
+        state_fs = []
+        action_fs = []
+        nextState_fs = []
+        reward_fs = []
         for i_steps in range(args.numSteps):
             if not use_ale and args.vis:
                 env.render()
@@ -132,6 +136,7 @@ def main(args):
             # print(observation)
             action = env.action_space.sample()
             nextState, reward, done, info = env.step(action)
+
             # print(f'nextState.min(): {nextState.min()}')
             # print(f'nextState.max(): {nextState.max()}')
             if i_episode == 0 and i_steps == 0:
@@ -146,23 +151,29 @@ def main(args):
                 print(f'type(done): {type(done)}')
                 print(f'info: {info}')
                 print(f'type(info): {type(info)}')
-            if len(framestack) < args.framestack:
-                framestack.append([curState, action, nextState, reward])
+            if len(state_fs) < args.framestack:
+                # framestack.append([curState, action, nextState, reward])
+                state_fs.append(curState)
+                action_fs.append(action)
+                nextState_fs.append(nextState)
+                reward_fs.append(reward)
             else:
-                replayBuffer.push(framestack)
+                replayBuffer.push(state_fs, action_fs, nextState_fs, reward_fs)
                 framestack = []
+                state_fs = []
+                action_fs = []
+                nextState_fs = []
+                reward_fs = []
                 # replayBuffer.push(curState, action, nextState, reward)
             if done:
                 env.reset()
             if len(replayBuffer) < args.batchSize:
                 continue
 
-            states, actions, nextStates, rewards = replayBuffer.sample3(args.batchSize, args.K)
+            states, actions, nextStates, rewards = replayBuffer.sample3(args.batchSize, args.k)
             print(f'X1_states.shape: {states.shape}')
-            exit()
-            # states, actions, nextStates, rewards = replayBuffer.sample2(args.batchSize, args.K)
-            states, actions, nextStates, rewards = replayBuffer.sample(args.batchSize)
-            print(f'x2_states.shape: {states.shape}')
+
+
             encoderFeatureMaps = model.forward_online_encoder(states)
             print(f'convFeatureMaps.shape: {encoderFeatureMaps.shape}')
             qValues_perAction= model(encoderFeatureMaps)
@@ -174,7 +185,7 @@ def main(args):
             # actions = actions.argmax(dim=1)
             convTransition_hiddenRep_tk = []
             # TODO args.Framestack prob wrong
-            for i in range(args.K):
+            for i in range(args.k):
                 a = actions[:, i]
                 # a(cion) will encoded as a one hot vector which is tiled appropriately into planes.
                 print(f'forloop: a.shape: {a.shape}')
