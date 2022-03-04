@@ -154,15 +154,17 @@ class ReplayMemory(object):
         # logging.warning(f'type(reward): {type(reward)}')
         # self.memory.append([curState, action, nextState, reward])
         self.memory.append(framestack)
-        
+
     def sample2(self, batch_size, k):
         t = random.randint(0, len(self.memory)-k)
-        
+
         #batches = random.sample(self.memory, batch_size) # BATCH X FRAMESTACK X 4
         # print(len(batches))
         # print(len(batches[0]))
         # print(len(batches[0][0]))
         sequence_obs = [self.memory[i+t] for i in range(k)]
+        print(sequence_obs)
+        exit()
         states = []             # BATCH X FRAMESTACK X WIDTH X HEIGHT
         actions = []
         nextStates = []
@@ -212,6 +214,21 @@ class ReplayMemory(object):
         # print(states.shape)
         # print(nextStates.shape)
         return states, actions, nextStates, rewards
+
+    def sample3(self, batchSize, k):
+        k_m = batchSize % k
+        print(f'batchSize={batchSize}\nk={k}\nk_m: {k_m}')
+        batch_k = []
+        for i_fullK in range(k_m):
+            print('4test')
+            randIndx = random.randint(0, (len(self.memory)-k))
+            # technique to slice deque from: https://stackoverflow.com/questions/10003143/how-to-slice-a-deque/10003351#10003351
+            print('testx')
+            curBatch = [self.memory[i] for i in range(randIndx, randIndx+k)]
+            print(curBatch)
+            exit()
+        return
+
 
     def sample(self, batch_size):
         batches = random.sample(self.memory, batch_size) # BATCH X FRAMESTACK X 4

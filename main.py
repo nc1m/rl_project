@@ -115,6 +115,7 @@ def main(args):
 
     replayBuffer = ReplayMemory(args.replayMem, use_cuda, (not args.no_augmentation), args.imageSize)
 
+
     # model = SPRModel(env.action_space.n, 4, (args.imageSize, args.imageSize), 128, 4, 1, args.noisy_nets, args.noisy_nets_std, 1, args.renormalize, args.distributional, args.momentum_tau)
     model = DuelingDDQN(args.framestack, args.dimHid, env.action_space.n, args.no_augmentation)
     if use_cuda:
@@ -156,7 +157,12 @@ def main(args):
             if len(replayBuffer) < args.batchSize:
                 continue
 
+            states, actions, nextStates, rewards = replayBuffer.sample3(args.batchSize, args.K)
+            print(f'X1_states.shape: {states.shape}')
+            exit()
+            # states, actions, nextStates, rewards = replayBuffer.sample2(args.batchSize, args.K)
             states, actions, nextStates, rewards = replayBuffer.sample(args.batchSize)
+            print(f'x2_states.shape: {states.shape}')
             encoderFeatureMaps = model.forward_online_encoder(states)
             print(f'convFeatureMaps.shape: {encoderFeatureMaps.shape}')
             qValues_perAction= model(encoderFeatureMaps)
