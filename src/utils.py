@@ -162,58 +162,64 @@ class ReplayMemory(object):
         # print(len(batches))
         # print(len(batches[0]))
         # print(len(batches[0][0]))
-        sequence_obs = [self.memory[i+t] for i in range(k)]
-        print(sequence_obs)
-        exit()
-        states = []             # BATCH X FRAMESTACK X WIDTH X HEIGHT
-        actions = []
-        nextStates = []
-        rewards = []
-        for obs in sequence_obs:
-            states_fs = []
-            #actions_fs = []
-            nextStates_fs = []
-            rewards_fs = []
-            for i, framestack in enumerate(obs):
-                if i == 0:
-                    actions.append(framestack[1])
-                states_fs.append(framestack[0])
-                #actions_fs.append(framestack[1])
-                nextStates_fs.append(framestack[2])
-                rewards_fs.append(framestack[3])
-            states.append(states_fs)
-            nextStates.append(nextStates_fs)
-            #actions.append(actions_fs)
-            rewards.append(rewards_fs)
 
-        actions = torch.tensor(actions)
-        rewards = torch.tensor(rewards)
-        rewards = torch.clamp(rewards, -1.0, 1.0)
+        batch_obs = []
+        for _ in range(batch_size):
+            sequence_obs = [self.memory[i+t] for i in range(k)]
+            states = []             # BATCH X FRAMESTACK X WIDTH X HEIGHT
+            actions = []
+            nextStates = []
+            rewards = []
+            for obs in sequence_obs:
+                states_fs = []
+                #actions_fs = []
+                nextStates_fs = []
+                rewards_fs = []
+                for i, framestack in enumerate(obs):
+                    if i == 0:
+                        actions.append(framestack[1])
+                    states_fs.append(framestack[0])
+                    #actions_fs.append(framestack[1])
+                    nextStates_fs.append(framestack[2])
+                    rewards_fs.append(framestack[3])
+                states.append(states_fs)
+                nextStates.append(nextStates_fs)
+                #actions.append(actions_fs)
+                rewards.append(rewards_fs)
+
+            actions = torch.tensor(actions)
+            rewards = torch.tensor(rewards)
+            rewards = torch.clamp(rewards, -1.0, 1.0)
+
+            states = process_images(states)
+            nextStates = process_images(nextStates)
+
+            if self.use_cuda:
+                actions = actions.cuda()
+                rewards = rewards.cuda()
+
+                states = states.cuda()
+                nextStates = nextStates.cuda()
+
+            if self.use_augmentation:
+                transform = nn.Sequential(Resize((self.imageSize, self.imageSize)), nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
+                states = transform(states)
+                nextStates = transform(nextStates)
+            else:
+                transform = nn.Sequential(Resize((self.imageSize, self.imageSize)))
+                states = transform(states)
+                nextStates = transform(nextStates)
+            # print(states.shape)
+            # print(nextStates.shape)
+
+            batch_obs.append([states, actions, nextStates, rewards])
+
         # print(f'rewards.min(): {rewards.min()}')
         # print(f'rewards.max(): {rewards.max()}')
 
 
-        states = process_images(states)
-        nextStates = process_images(nextStates)
-
-        if self.use_cuda:
-            actions = actions.cuda()
-            rewards = rewards.cuda()
-
-            states = states.cuda()
-            nextStates = nextStates.cuda()
-
-        if self.use_augmentation:
-            transform = nn.Sequential(Resize((self.imageSize, self.imageSize)), nn.ReplicationPad2d(4), RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
-            states = transform(states)
-            nextStates = transform(nextStates)
-        else:
-            transform = nn.Sequential(Resize((self.imageSize, self.imageSize)))
-            states = transform(states)
-            nextStates = transform(nextStates)
-        # print(states.shape)
-        # print(nextStates.shape)
-        return states, actions, nextStates, rewards
+        return np.array(batch_obs)
+        #return states, actions, nextStates, rewards
 
     def sample3(self, batchSize, k):
         k_m = batchSize % k
