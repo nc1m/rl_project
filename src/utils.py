@@ -135,7 +135,7 @@ def process_images(images):
     images = images.permute(0, 1, 2, 5, 3, 4)
     images = images / 255
     images = rgb_to_grayscale(images)
-    # images = torch.squeeze(images)
+    images = torch.squeeze(images)
     return images
 
 
@@ -143,7 +143,7 @@ def process_images(images):
 class ReplayMemory(object):
 
     def __init__(self, capacity, use_cuda, use_augmentation, imageSize):
-        self.memory = deque([], maxlen=capacity)
+        # self.memory = deque([], maxlen=capacity)
         self.states = deque([], maxlen=capacity)
         self.actions = deque([], maxlen=capacity)
         self.nextStates = deque([], maxlen=capacity)
@@ -207,6 +207,8 @@ class ReplayMemory(object):
             transform = nn.Sequential(Resize(self.imageSize))#, nn.ReplicationPad2d(4),
                                       # RandomCrop((self.imageSize, self.imageSize)), Intensity(scale=0.5))
             print(f'states: {states.shape}')
+            print(f'type(states): {type(states)}')
+            print(f'states.dtype: {states.dtype}')
             states = transform(states)
             print('test2')
             nextStates = transform(nextStates)
