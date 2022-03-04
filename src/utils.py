@@ -162,24 +162,26 @@ class ReplayMemory(object):
         # print(len(batches))
         # print(len(batches[0]))
         # print(len(batches[0][0]))
-        sequence_obs = [self.memory[i+t] for i in k]
+        sequence_obs = [self.memory[i+t] for i in range(k)]
         states = []             # BATCH X FRAMESTACK X WIDTH X HEIGHT
         actions = []
         nextStates = []
         rewards = []
         for obs in sequence_obs:
             states_fs = []
-            actions_fs = []
+            #actions_fs = []
             nextStates_fs = []
             rewards_fs = []
-            for framestack in obs:
+            for i, framestack in enumerate(obs):
+                if i == 0:
+                    actions.append(framestack[1])
                 states_fs.append(framestack[0])
-                actions_fs.append(framestack[1])
+                #actions_fs.append(framestack[1])
                 nextStates_fs.append(framestack[2])
                 rewards_fs.append(framestack[3])
             states.append(states_fs)
             nextStates.append(nextStates_fs)
-            actions.append(actions_fs)
+            #actions.append(actions_fs)
             rewards.append(rewards_fs)
 
         actions = torch.tensor(actions)
