@@ -65,6 +65,7 @@ def parse_args():
     parser.add_argument('--distributional', type=int, default=1)
     parser.add_argument('--momentum-tau', type=float, default=0.01)
     parser.add_argument('--dimHid', default=256, type=int)
+    parser.add_argument('-K', default=5, type=int, help='Prediction depth K')
     return parser.parse_args()
 
 
@@ -167,7 +168,7 @@ def main(args):
             # actions = actions.argmax(dim=1)
             convTransition_hiddenRep_tk = []
             # TODO args.Framestack prob wrong
-            for i in range(args.framestack):
+            for i in range(args.K):
                 a = actions[:, i]
                 # a(cion) will encoded as a one hot vector which is tiled appropriately into planes.
                 print(f'forloop: a.shape: {a.shape}')
