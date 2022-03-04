@@ -13,10 +13,23 @@ def get_screen(env):
 
 class ObservationWrapper(gym.ObservationWrapper):
     def __init__(self, env) -> None:
+        """Initialize ObservationWrapper
+
+        Args:
+            env : Used environment
+        """
         super().__init__(env)
         self.observation_space = spaces.Box(0, 255, (3, 400, 600), np.uint8)
 
     def observation(self, observation):
+        """Update observation method to retrieve image instead of locations/angles
+
+        Args:
+            observation: Default observation used
+
+        Returns:
+            _type_: Screen 
+        """
         return get_screen(self.env)
 
 
